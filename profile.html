@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>My Profile — WorldCuisine</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Playfair+Display:ital,wght@0,600;0,800;1,600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/user.css">
+</head>
+<body data-page="profile">
+  <a class="skip-link" href="#main">Skip to content</a>
+  <header id="site-header" class="site-header"></header>
+
+  <main id="main" class="container">
+    <section class="page-head">
+      <p class="eyebrow">Stored on this device only</p>
+      <h1>My <em>profile</em></h1>
+    </section>
+
+    <section class="user-section panel profile-card" id="profile-card"></section>
+
+    <section class="user-section" aria-labelledby="stats-title">
+      <h2 id="stats-title">My food journey</h2>
+      <div id="stats-grid" class="stats-grid"></div>
+    </section>
+
+    <section class="user-section" aria-labelledby="passport-title">
+      <h2 id="passport-title">Culinary Passport</h2>
+      <div id="passport"></div>
+    </section>
+
+    <section class="user-section" aria-labelledby="feed-title">
+      <h2 id="feed-title">Recent activity</h2>
+      <ul id="activity-feed" class="feed"></ul>
+    </section>
+  </main>
+
+  <footer id="site-footer" class="site-footer"></footer>
+  <script type="module" src="js/main.js"></script>
+  <script type="module" src="js/profile.js"></script>
+</body>
+</html>

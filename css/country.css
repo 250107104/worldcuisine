@@ -1,0 +1,15 @@
+/* ===== Country page ===== */
+.country-hero { position: relative; min-height: 55vh; display: flex; align-items: flex-end; color: #fff; }
+.country-hero .photo { position: absolute; inset: 0; }
+.country-hero::after { content: ""; position: absolute; inset: 0; background: linear-gradient(to top, rgba(20,35,28,.9), rgba(20,35,28,.1)); }
+.country-hero .container { position: relative; z-index: 1; padding-bottom: 2.5rem; }
+.country-hero h1 { color: #fff; margin: .3rem 0 0; display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; }
+.country-hero .flag { width: 64px; }
+.country-hero .eyebrow { color: #f0a58a; margin: 0; }
+
+.country-intro { max-width: 65ch; font-size: 1.2rem; padding: 3rem 0 1rem; }
+.country-section { padding: 2rem 0; }
+.tag-list { display: flex; flex-wrap: wrap; gap: .6rem; list-style: none; padding: 0; margin: 1rem 0 0; }
+.tag-list .tag { background: var(--green); color: var(--cream); font-size: 1rem; padding: .5rem 1.1rem; }
+.country-cta { text-align: center; padding: 3rem 0 1rem; }
+.country-cta .back-link { margin-top: 1.5rem; }

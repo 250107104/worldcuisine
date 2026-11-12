@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Explore recipes — WorldCuisine</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Playfair+Display:ital,wght@0,600;0,800;1,600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/explore.css">
+</head>
+<body data-page="explore">
+  <a class="skip-link" href="#main">Skip to content</a>
+  <header id="site-header" class="site-header"></header>
+
+  <main id="main">
+    <section class="explore-head container">
+      <p class="eyebrow">Recipes</p>
+      <h1>Explore <em>recipes</em></h1>
+    </section>
+
+    <section class="container">
+      <form id="filter-form" class="filter-form" role="search">
+        <div class="form-field field-wide">
+          <label for="search-input">Search by name</label>
+          <input id="search-input" name="q" type="search" placeholder="e.g. pasta, curry, pie">
+        </div>
+        <div class="form-field">
+          <label for="area-select">Country</label>
+          <select id="area-select" name="area"><option value="">All countries</option></select>
+        </div>
+        <div class="form-field">
+          <label for="category-select">Category</label>
+          <select id="category-select" name="category"><option value="">All categories</option></select>
+        </div>
+        <div class="form-field">
+          <label for="sort-select">Sort by</label>
+          <select id="sort-select" name="sort">
+            <option value="default">Default</option>
+            <option value="name-asc">Name A–Z</option>
+            <option value="name-desc">Name Z–A</option>
+            <option value="rating">Highest rated</option>
+          </select>
+        </div>
+        <div class="form-buttons">
+          <button class="btn" type="submit">Search</button>
+          <button id="clear-btn" class="btn btn-outline" type="button">Clear filters</button>
+        </div>
+      </form>
+
+      <p id="filter-note" class="source-note" hidden></p>
+      <h2 id="results-title" class="results-title" aria-live="polite"></h2>
+      <div id="status" aria-live="polite"></div>
+      <div id="recipe-grid" class="card-grid"></div>
+      <div class="load-more-box"><button id="load-more" class="btn btn-outline" type="button" hidden>Load more</button></div>
+    </section>
+  </main>
+
+  <footer id="site-footer" class="site-footer"></footer>
+  <script type="module" src="js/main.js"></script>
+  <script type="module" src="js/explore.js"></script>
+</body>
+</html>

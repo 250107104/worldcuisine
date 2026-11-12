@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Reviews — WorldCuisine</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Playfair+Display:ital,wght@0,600;0,800;1,600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/user.css">
+</head>
+<body data-page="reviews">
+  <a class="skip-link" href="#main">Skip to content</a>
+  <header id="site-header" class="site-header"></header>
+
+  <main id="main" class="container">
+    <section class="page-head">
+      <p class="eyebrow">Your opinions</p>
+      <h1>My <em>reviews</em></h1>
+      <p id="reviews-summary" class="summary"></p>
+    </section>
+
+    <section class="user-section review-layout">
+      <form id="review-form" class="panel" novalidate>
+        <h2 id="form-title">Write a review</h2>
+        <div class="form-field">
+          <label for="review-dish">Dish</label>
+          <select id="review-dish" required><option value="">Choose a dish…</option></select>
+          <p class="hint">The list shows dishes from your watchlist, favorites, tried dishes and reviews. For any other dish, open its recipe and press "Write a review".</p>
+        </div>
+        <div class="form-field">
+          <span id="rating-label" class="label">Your rating</span>
+          <div id="review-stars"></div>
+        </div>
+        <div class="form-field">
+          <label for="review-text">Your review</label>
+          <textarea id="review-text" rows="5" maxlength="1000" placeholder="What did you think of this dish?"></textarea>
+        </div>
+        <div id="form-errors" class="form-errors" role="alert"></div>
+        <div id="form-message" class="form-message" role="status"></div>
+        <div class="form-buttons">
+          <button id="save-btn" class="btn" type="submit">Save review</button>
+          <button id="cancel-btn" class="btn btn-outline" type="button" hidden>Cancel</button>
+        </div>
+      </form>
+
+      <div>
+        <h2>All reviews <span id="review-count" class="count"></span></h2>
+        <div id="review-list" class="review-list"></div>
+      </div>
+    </section>
+  </main>
+
+  <footer id="site-footer" class="site-footer"></footer>
+  <script type="module" src="js/main.js"></script>
+  <script type="module" src="js/reviews.js"></script>
+</body>
+</html>
