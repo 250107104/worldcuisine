@@ -1,7 +1,5 @@
 # WorldCuisine
 
-Run with a local server (ES modules do not work from file://): VS Code "Live Server" or `python -m http.server`.
-
 ## Final structure
 ```
 index.html  country.html  explore.html  recipe.html  watchlist.html  reviews.html  profile.html
