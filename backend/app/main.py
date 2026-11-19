@@ -1,4 +1,4 @@
-"""WorldCuisine REST API. Run:  uvicorn app.main:app --reload   then open http://127.0.0.1:8000/docs"""
+"""WorldCuisine REST API. Run: uvicorn app.main:app --reload"""
 import logging
 from contextlib import asynccontextmanager
 
@@ -14,16 +14,8 @@ from app.routers import admin, collections, countries, dishes, passport, reviews
 from app.seed import load_seed
 
 log = logging.getLogger("worldcuisine")
-
-DESCRIPTION = """
-Backend for the **WorldCuisine** app: explore dishes by country, keep a watchlist, favorites and tried list,
-write reviews, and collect passport stamps.
-
-Data lives in memory and is reset to a small seed each time the server starts
-(or by `POST /admin/reset`). A demo user `u1` exists from the start.
-
-**Errors** always look like `{"detail": "...", "code": "not_found | conflict | invalid_reference | validation_error"}`.
-"""
+DESCRIPTION = """WorldCuisine API. Country metadata is a local mapping; the meal catalog comes from TheMealDB.
+User accounts, ratings, collections, reviews and passport progress are kept in the backend store."""
 
 
 @asynccontextmanager
@@ -33,8 +25,7 @@ async def lifespan(app: FastAPI):
     yield
 
 
-app = FastAPI(title="WorldCuisine API", version="1.0.0", description=DESCRIPTION, lifespan=lifespan)
-
+app = FastAPI(title="WorldCuisine API", version="1.1.0", description=DESCRIPTION, lifespan=lifespan)
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
 
@@ -45,11 +36,8 @@ async def handle_app_error(request: Request, exc: AppError):
 
 @app.exception_handler(RequestValidationError)
 async def handle_validation_error(request: Request, exc: RequestValidationError):
-    errors = [
-        {"field": ".".join(str(p) for p in e["loc"] if p != "body") or "body",
-         "message": e["msg"].removeprefix("Value error, ")}
-        for e in exc.errors()
-    ]
+    errors = [{"field": ".".join(str(p) for p in e["loc"] if p != "body") or "body",
+               "message": e["msg"].removeprefix("Value error, ")} for e in exc.errors()]
     summary = "; ".join(f"{e['field']}: {e['message']}" for e in errors)
     return JSONResponse(status_code=422, content={"detail": summary, "code": "validation_error", "errors": errors})
 
