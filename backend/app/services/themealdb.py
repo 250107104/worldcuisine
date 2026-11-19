@@ -48,20 +48,25 @@ def _country_for_area(area: str | None) -> dict | None:
     return next((c for c in db.countries.values() if c["cuisine"].casefold() == needle), None)
 
 
-def normalize_meal(raw: dict) -> dict | None:
-    """Convert a TheMealDB response to the backend's stable dish representation."""
-    country = _country_for_area(raw.get("strArea"))
+def normalize_meal(raw: dict, area: str | None = None) -> dict | None:
+    """Convert a TheMealDB response to the backend's stable dish representation.
+
+    Filter endpoints omit strArea and recipe details, so callers may provide the
+    cuisine area when it is already known (for example filter.php?a=Italian).
+    """
+    country = _country_for_area(raw.get("strArea") or area)
     meal_id = raw.get("idMeal")
-    if not country or not meal_id or not raw.get("strMeal"):
+    name = raw.get("strMeal")
+    if not country or not meal_id or not name:
         return None
     ingredients = []
     for index in range(1, 21):
-        name = (raw.get(f"strIngredient{index}") or "").strip()
-        if name:
-            ingredients.append({"name": name, "measure": (raw.get(f"strMeasure{index}") or "").strip()})
+        ingredient = (raw.get(f"strIngredient{index}") or "").strip()
+        if ingredient:
+            ingredients.append({"name": ingredient, "measure": (raw.get(f"strMeasure{index}") or "").strip()})
     tags = [tag.strip() for tag in (raw.get("strTags") or "").split(",") if tag.strip()]
     return {
-        "id": str(meal_id), "name": raw["strMeal"].strip(), "country_id": country["id"],
+        "id": str(meal_id), "name": name.strip(), "country_id": country["id"],
         "category": (raw.get("strCategory") or "").strip() or None,
         "image": raw.get("strMealThumb") or None,
         "tags": tags, "ingredients": ingredients,
@@ -72,17 +77,13 @@ def normalize_meal(raw: dict) -> dict | None:
 
 def get_by_area(area: str) -> list[dict]:
     raw_meals = _get_json("filter.php", a=area).get("meals") or []
-    return [meal for raw in raw_meals if (meal := normalize_meal(raw))]
+    return [meal for raw in raw_meals if (meal := normalize_meal(raw, area=area))]
 
 
-def get_by_category(category: str) -> list[dict]:
-    raw_meals = _get_json("filter.php", c=category).get("meals") or []
-    return [meal for raw in raw_meals if (meal := normalize_meal(raw))]
-
-
-def get_by_ingredient(ingredient: str) -> list[dict]:
-    raw_meals = _get_json("filter.php", i=ingredient).get("meals") or []
-    return [meal for raw in raw_meals if (meal := normalize_meal(raw))]
+def get_filtered_ids(kind: str, value: str) -> set[str]:
+    """IDs from TheMealDB category/ingredient filters (these are short records)."""
+    rows = _get_json("filter.php", **{kind: value}).get("meals") or []
+    return {str(row["idMeal"]) for row in rows if row.get("idMeal")}
 
 
 def search(name: str) -> list[dict]:

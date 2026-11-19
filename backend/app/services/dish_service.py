@@ -4,8 +4,7 @@ import random
 from app.core.exceptions import NotFoundError
 from app.db import db
 from app.services import themealdb
-from app.services.lookups import normalize_country_id, require_country, require_dish
-from app.services.pagination import paginate
+from app.services.lookups import require_country, require_dish
 
 
 def _community_stats(dish_id: str) -> tuple[float | None, int]:
@@ -29,22 +28,23 @@ def to_detail(dish: dict) -> dict:
 
 
 def _candidates(q=None, country_id=None, category=None, ingredient=None) -> list[dict]:
-    if country_id:
-        country_id = require_country(country_id)["id"]
+    country = require_country(country_id) if country_id else None
     if q:
         items = themealdb.search(q)
-    elif country_id:
-        items = themealdb.get_by_area(db.countries[country_id]["cuisine"])
+        if country:
+            items = [dish for dish in items if dish["country_id"] == country["id"]]
+    elif country:
+        items = themealdb.get_by_area(country["cuisine"])
     else:
         items = themealdb.all_catalog_summaries()
 
-    if country_id:
-        items = [dish for dish in items if dish["country_id"] == country_id]
+    # TheMealDB's category and ingredient filters return only id/name/image, so
+    # intersect their IDs with full catalog records that include area metadata.
     if category:
-        matches = {d["id"] for d in themealdb.get_by_category(category)}
+        matches = themealdb.get_filtered_ids("c", category)
         items = [dish for dish in items if dish["id"] in matches]
     if ingredient:
-        matches = {d["id"] for d in themealdb.get_by_ingredient(ingredient)}
+        matches = themealdb.get_filtered_ids("i", ingredient)
         items = [dish for dish in items if dish["id"] in matches]
     for dish in items:
         db.dishes.setdefault(dish["id"], dish)
@@ -59,10 +59,9 @@ def list_dishes(q=None, country_id=None, category=None, ingredient=None,
                                   -(_community_stats(d["id"])[0] or 0), d["name"].casefold()))
     elif sort == "name":
         items.sort(key=lambda d: d["name"].casefold())
-    # TheMealDB provides no creation timestamp; for "newest", retain upstream order.
+    # TheMealDB provides no creation timestamp; preserve upstream order for "newest".
     page = items[offset:offset + limit]
-    summaries = [to_summary(require_dish(d["id"])) for d in page]
-    return {"items": summaries, "total": len(items), "limit": limit, "offset": offset}
+    return {"items": [to_summary(d) for d in page], "total": len(items), "limit": limit, "offset": offset}
 
 
 def list_categories() -> list[str]:
