@@ -1,31 +1,34 @@
 # WorldCuisine backend
 
-FastAPI REST API for user-specific collections, reviews, ratings, activity and Culinary Passport progress. The meal catalog is fetched from TheMealDB; the backend keeps country-to-cuisine metadata locally because TheMealDB exposes cuisine areas (such as `Italian`), not country records.
+FastAPI API with a TheMealDB-backed dish catalog and SQLAlchemy persistence for supported countries, cached dish records and user data (users, collections, ratings, reviews, passport stamps, explored dishes and activity).
 
-## Run
+## Configure PostgreSQL
+
+Create a PostgreSQL database named `worldcuisine`, then configure the connection before starting the API:
+
+```bash
+export DATABASE_URL='postgresql+psycopg://YOUR_USER:YOUR_PASSWORD@localhost:5432/worldcuisine'
+```
+
+Install and migrate:
 
 ```bash
 cd backend
-pip install -r requirements.txt
+python -m pip install -r requirements.txt
+alembic upgrade head
 uvicorn app.main:app --reload
 ```
 
-Open `http://127.0.0.1:8000/docs`. `pytest` runs the automated tests. The API requires internet access when catalog endpoints are used. Upstream data is cached in memory for 15 minutes; user state is currently in memory too and resets on restart. `POST /admin/reset` clears local state and the upstream response cache.
+For local tests/development without PostgreSQL, the app defaults to `sqlite:///./worldcuisine.db`; set `DATABASE_URL` to use PostgreSQL. Tables are created by the initial Alembic migration (the app also ensures tables exist on startup). The app initializes supported country metadata and a demo account once, only when the database has no countries.
 
-## Data flow
+## API and data
 
-- `GET /countries` returns the supported country/cuisine mapping and live TheMealDB dish counts.
-- `/dishes` calls TheMealDB search, area, category, ingredient, lookup and random endpoints. Dish IDs are the upstream `idMeal` values; details are fetched by `lookup.php` as needed.
-- Ratings, reviews, watchlists, favorites, tried dishes and passport stamps are WorldCuisine data held by the backend. Country metadata (stable URL ID and ISO codes) is configuration, not a local dish catalog.
-- TheMealDB failures return `502` with `{"code":"upstream_error"}`. Cached responses can still be served until the cache expires.
+Open `http://127.0.0.1:8000/docs`. Dish list/details come from TheMealDB and use its `idMeal` IDs. Responses are cached in memory by the upstream adapter for 15 minutes; details and user-linked dishes are saved locally to preserve relationships. Country-to-cuisine and ISO metadata is a local reference mapping because TheMealDB exposes cuisine areas, not country records.
 
-## Main endpoints
+PostgreSQL persists users, one-to-many user collections/reviews/activity, ratings, passport stamps and explored dishes. Foreign keys, unique constraints and rating/kind checks protect data integrity. Existing service-layer business rules and API routes are retained. User-specific data survives backend restarts; `/admin/reset` is for testing and clears local application data.
 
-- Countries: `GET /countries`, `GET /countries/{id}`, `GET /countries/{id}/dishes`
-- TheMealDB catalog: `GET /dishes` (q, country, category, ingredient, sort, limit, offset), `GET /dishes/categories`, `GET /dishes/random`, `GET /dishes/{id}`
-- Users: `POST/GET /users`, `GET/PATCH/DELETE /users/{id}`
-- User collections: `/users/{id}/collections/{watchlist|favorites|tried}`
-- Reviews and ratings: `/users/{id}/reviews`, `/users/{id}/ratings`, `/dishes/{id}/reviews`
-- Passport, activity, recommendations: `/users/{id}/passport`, `/users/{id}/activity`, `/users/{id}/recommendations`
+## Tests
 
-The catalog is read-only through this API: adding, editing or deleting a dish would incorrectly suggest that the backend can modify TheMealDB's source records. User-specific ratings and saves continue to reference the upstream meal ID.
+```bash
+pytest
+```

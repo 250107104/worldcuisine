@@ -1,4 +1,4 @@
-"""WorldCuisine REST API. Run: uvicorn app.main:app --reload"""
+"""WorldCuisine REST API."""
 import logging
 from contextlib import asynccontextmanager
 
@@ -6,27 +6,55 @@ from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from sqlalchemy import select
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.core.exceptions import AppError
+from app.database import SessionLocal, engine
 from app.db import db
+from app.models import Base, Country
+from app.persistence import STATE_LOCK, load_state, save_state
 from app.routers import admin, collections, countries, dishes, passport, reviews, users
 from app.seed import load_seed
 
 log = logging.getLogger("worldcuisine")
-DESCRIPTION = """WorldCuisine API. Country metadata is a local mapping; the meal catalog comes from TheMealDB.
-User accounts, ratings, collections, reviews and passport progress are kept in the backend store."""
+DESCRIPTION = """WorldCuisine API. TheMealDB provides the meal catalog. PostgreSQL (configured with DATABASE_URL)
+persists users, collections, reviews, ratings, country metadata and cached catalog records."""
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    db.reset()
-    load_seed(db)
+    Base.metadata.create_all(bind=engine)
+    with STATE_LOCK, SessionLocal() as session:
+        if session.scalar(select(Country.id).limit(1)) is None:
+            db.reset()
+            load_seed(db)
+            save_state(session)
+            session.commit()
     yield
 
 
-app = FastAPI(title="WorldCuisine API", version="1.1.0", description=DESCRIPTION, lifespan=lifespan)
+app = FastAPI(title="WorldCuisine API", version="2.0.0", description=DESCRIPTION, lifespan=lifespan)
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
+
+
+@app.middleware("http")
+async def persistent_unit_of_work(request: Request, call_next):
+    # Keep the existing Assignment 5 services intact while giving each HTTP request
+    # an atomic SQL-backed unit of work. The lock avoids lost updates in shared state.
+    with STATE_LOCK, SessionLocal() as session:
+        load_state(session)
+        try:
+            response = await call_next(request)
+            if response.status_code < 400:
+                save_state(session)
+                session.commit()
+            else:
+                session.rollback()
+            return response
+        except Exception:
+            session.rollback()
+            raise
 
 
 @app.exception_handler(AppError)
