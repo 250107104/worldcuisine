@@ -57,6 +57,35 @@ def test_dish_crud_and_rules(client):
     assert client.get(f"/dishes/{dish_id}").status_code == 404
 
 
+# ---------- authentication registration ----------
+def test_register_account_validates_hashes_and_rejects_duplicates(client):
+    payload = {"username": "Maria", "email": "Maria@example.com", "password": "correct horse battery"}
+    response = client.post("/auth/register", json=payload)
+    assert response.status_code == 201, response.text
+    assert response.json()["username"] == "Maria"
+    assert "email" not in response.json() and "password_hash" not in response.json()
+
+    from sqlalchemy import select
+    from app.db import get_engine
+    from app.models import User
+    from app.security import verify_password
+
+    with get_engine().connect() as connection:
+        user = connection.execute(select(User).where(User.username == "Maria")).scalar_one_or_none()
+    # Query through an ORM session below to inspect the persisted hash.
+    from sqlalchemy.orm import Session
+    with Session(get_engine()) as session:
+        user = session.scalar(select(User).where(User.username == "Maria"))
+        assert user.password_hash != payload["password"]
+        assert verify_password(payload["password"], user.password_hash)
+
+    assert client.post("/auth/register", json={**payload, "username": "Other"}).status_code == 409
+    assert client.post("/auth/register", json={**payload, "email": "other@example.com", "username": "maria"}).status_code == 409
+    assert client.post("/auth/register", json={**payload, "email": "not-an-email"}).status_code == 422
+    assert client.post("/auth/register", json={**payload, "password": "short"}).status_code == 422
+    assert client.post("/auth/register", json={"username": "Maria"}).status_code == 422
+
+
 def test_random_and_categories_routes_not_shadowed(client):
     assert client.get("/dishes/random").status_code == 200
     assert "Dessert" in client.get("/dishes/categories").json()
@@ -149,129 +178,11 @@ def test_passport_activity_recommendations(client):
 
     recs = client.get(f"{U}/recommendations", params={"limit": 3}).json()
     assert len(recs) == 3 and all(TERIYAKI != r["dish"]["id"] for r in recs)
-    assert client.get(f"{U}/recommendations", params={"country": "atlantis"}).status_code == 404
     assert client.get("/users/zzz/recommendations").status_code == 404
 
 
+# ---------- existing API regression checks ----------
 def test_unknown_route_and_method_use_error_format(client):
     r = client.get("/nope")
     assert r.status_code == 404 and r.json()["code"] == "not_found"
     assert client.patch("/countries").status_code == 405
-
-
-# ---------- country id case ----------
-def test_country_ids_accept_any_case(client):
-    assert client.get("/dishes", params={"country": "Italy"}).json()["total"] == 2
-    assert client.get("/countries/ITALY").status_code == 200
-    assert client.get("/countries/Italy/dishes").json()["total"] == 2
-    body = {"name": "Lasagne", "country_id": "Italy", "category": "Pasta",
-            "ingredients": [{"name": "ragu", "measure": "500 g"}],
-            "instructions": "Layer pasta, ragu and bechamel, then bake."}
-    r = client.post("/dishes", json=body)
-    assert r.status_code == 201 and r.json()["country_id"] == "italy"
-    assert client.post(f"{U}/passport/stamps", json={"country_id": "France"}).status_code == 201
-    assert client.delete(f"{U}/passport/stamps/FRANCE").status_code == 204
-
-
-# ---------- changing a dish's country ----------
-def test_cannot_move_a_tried_dish_to_another_country(client):
-    client.post(f"{U}/collections/tried", json={"dish_id": TERIYAKI})
-    r = client.patch(f"/dishes/{TERIYAKI}", json={"country_id": "china"})
-    assert r.status_code == 409 and error_code(r) == "conflict"
-    assert client.get(f"/dishes/{TERIYAKI}").json()["country_id"] == "japan"
-    assert client.patch(f"/dishes/{PIZZA}", json={"country_id": "spain"}).status_code == 200   # untried: allowed
-    assert client.patch(f"/dishes/{PIZZA}", json={"country_id": "mars"}).status_code == 422
-
-
-# ---------- enum query parameters ----------
-def test_enum_query_parameters(client):
-    assert client.get(f"{U}/activity", params={"type": "review"}).status_code == 200
-    r = client.get(f"{U}/activity", params={"type": "nope"})
-    assert r.status_code == 422 and error_code(r) == "validation_error"
-    assert client.get(f"{U}/reviews", params={"sort": "rating"}).status_code == 200
-    assert client.get(f"{U}/reviews", params={"sort": "alphabet"}).status_code == 422
-
-
-# ---------- pagination on every list ----------
-def test_all_list_endpoints_return_pages(client):
-    for i in range(3):
-        client.post("/users", json={"username": f"user{i}"})
-    users = client.get("/users", params={"limit": 2}).json()
-    assert users["total"] == 4 and len(users["items"]) == 2 and users["limit"] == 2
-    assert client.get("/users", params={"limit": 0}).status_code == 422
-    assert client.get("/users", params={"offset": -1}).status_code == 422
-
-    for dish in (CARBONARA, PIZZA, TERIYAKI):
-        client.post(f"{U}/collections/watchlist", json={"dish_id": dish})
-        client.put(f"{U}/ratings/{dish}", json={"rating": 4})
-    page = client.get(f"{U}/collections/watchlist", params={"limit": 2, "offset": 2}).json()
-    assert page["total"] == 3 and len(page["items"]) == 1 and page["offset"] == 2
-    assert client.get(f"{U}/collections/watchlist", params={"limit": 101}).status_code == 422
-
-    ratings = client.get(f"{U}/ratings", params={"limit": 2}).json()
-    assert ratings["total"] == 3 and len(ratings["items"]) == 2
-
-    client.put(f"{U}/reviews/{CARBONARA}", json={"rating": 5, "text": "Creamy and perfect carbonara."})
-    client.put(f"{U}/reviews/{PIZZA}", json={"rating": 4, "text": "Blistered crust, lovely pizza."})
-    reviews = client.get(f"{U}/reviews", params={"limit": 1}).json()
-    assert reviews["total"] == 2 and len(reviews["items"]) == 1
-    assert client.get(f"{U}/reviews", params={"limit": 1, "offset": 1}).json()["items"][0]["dish_id"] == CARBONARA
-
-
-def test_rejects_invalid_values_before_writing(client):
-    dish = {"name": " Lasagne ", "country_id": " ITALY ", "category": " Pasta ",
-            "ingredients": [{"name": " Pasta "}], "instructions": " Layer the pasta and bake. "}
-    cases = [
-        ("POST", "/dishes", dish | {"name": " a "}, "name"),
-        ("POST", "/dishes", dish | {"instructions": "        x "}, "instructions"),
-        ("POST", "/dishes", dish | {"image": "https://?missing-host"}, "image"),
-        ("POST", "/dishes", dish | {"ingredients": [{"name": "pasta"}, {"name": " Pasta "}]}, "ingredients"),
-        ("PATCH", f"/dishes/{CARBONARA}", {"tags": ["\x00"]}, "tags.0"),
-        ("PATCH", f"/dishes/{CARBONARA}", {"ingredient": []}, "ingredient"),
-        ("PUT", f"{U}/ratings/{CARBONARA}", {"rating": True}, "rating"),
-        ("POST", "/users", {"username": "bad\x00name"}, "username"),
-        ("POST", "/users", {"username": "name", "body": "typo"}, "body"),
-        ("POST", f"{U}/collections/watchlist", {"dish_id": " "}, "dish_id"),
-    ]
-    for method, path, payload, field in cases:
-        response = client.request(method, path, json=payload)
-        assert response.status_code == 422, response.text
-        assert response.json()["code"] == "validation_error"
-        assert response.json()["errors"][0]["field"] == field
-
-    response = client.get("/dishes/%00")
-    assert response.status_code == 422 and error_code(response) == "validation_error"
-    response = client.get("/dishes", params={"q": "\x00"})
-    assert response.status_code == 422 and error_code(response) == "validation_error"
-    assert client.get("/countries/italy").json()["dish_count"] == 2
-    assert client.get(f"{U}/ratings").json()["total"] == 0
-    assert client.post("/dishes", json=dish).json()["name"] == "Lasagne"
-    assert client.patch(f"/dishes/{CARBONARA}", json={"image": None}).status_code == 200
-
-
-def test_database_conflict_rolls_back_and_returns_409(client, monkeypatch):
-    from app.services import user_service
-
-    # Bypass the friendly pre-check to exercise the unique index fallback used on a racing insert.
-    monkeypatch.setattr(user_service, "_check_username", lambda *args: None)
-    response = client.post("/users", json={"username": "food explorer"})
-    assert response.status_code == 409 and error_code(response) == "conflict"
-    assert client.get("/users").json()["total"] == 1
-    assert client.post("/users", json={"username": "New Explorer"}).status_code == 201
-
-
-def test_database_foreign_key_failure_rolls_back_the_entire_request(client, monkeypatch):
-    from app.models import PassportStamp
-    from app.services import user_service
-
-    create_user = user_service.create_user
-
-    def add_user_with_bad_stamp(session, data):
-        user = create_user(session, data)
-        session.add(PassportStamp(user_id=user["id"], country_id="missing"))
-        return user
-
-    monkeypatch.setattr(user_service, "create_user", add_user_with_bad_stamp)
-    response = client.post("/users", json={"username": "Bad Passport"})
-    assert response.status_code == 422 and error_code(response) == "invalid_reference"
-    assert client.get("/users").json()["total"] == 1

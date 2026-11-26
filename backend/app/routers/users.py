@@ -14,7 +14,10 @@ NOT_FOUND = {404: {"model": ErrorResponse}}
 @router.post("", response_model=UserOut, status_code=status.HTTP_201_CREATED,
              responses={409: {"model": ErrorResponse}}, summary="Create a user profile")
 def create_user(session: DBSession, body: UserCreate):
-    return user_service.create_user(session, body.model_dump())
+    data = body.model_dump()
+    if body.password is not None:
+        data["password"] = body.password
+    return user_service.create_user(session, data)
 
 
 @router.get("", response_model=Page[UserOut], summary="List users")
@@ -31,7 +34,10 @@ def get_user(session: DBSession, user_id: InputText):
               responses={404: {"model": ErrorResponse}, 409: {"model": ErrorResponse}},
               summary="Edit profile (partial)")
 def update_user(session: DBSession, user_id: InputText, body: UserUpdate):
-    return user_service.update_user(session, user_id, body.model_dump(exclude_unset=True))
+    changes = body.model_dump(exclude_unset=True)
+    if "password" in body.model_fields_set:
+        changes["password"] = body.password
+    return user_service.update_user(session, user_id, changes)
 
 
 @router.delete("/{user_id}", status_code=status.HTTP_204_NO_CONTENT, responses=NOT_FOUND,

@@ -8,7 +8,7 @@ from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.core.exceptions import AppError
-from app.routers import admin, collections, countries, dishes, passport, reviews, users
+from app.routers import admin, auth, collections, countries, dishes, passport, reviews, users
 from app.schemas.common import ErrorResponse, ValidationErrorResponse
 from app.website import attach_website
 
@@ -60,7 +60,7 @@ async def handle_unexpected(request: Request, exc: Exception):
     return JSONResponse(status_code=500, content={"detail": "Internal server error", "code": "server_error"})
 
 
-for module in (countries, dishes, users, collections, reviews, passport, admin):
+for module in (auth, countries, dishes, users, collections, reviews, passport, admin):
     app.include_router(module.router, responses={
         422: {"model": ValidationErrorResponse, "description": "Validation or invalid reference"},
         503: {"model": ErrorResponse, "description": "Database temporarily unavailable"},

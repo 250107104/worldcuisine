@@ -37,6 +37,15 @@ class UserCreate(RequestBody):
         return self
 
 
+class RegistrationCreate(RequestBody):
+    """Validated input for creating a password-based account."""
+    username: Username = Field(examples=["Maria"])
+    email: Email
+    password: Password = Field(repr=False)
+    bio: Bio = ""
+    avatar: Avatar | None = Field(default=None, description=f"One of {AVATARS}; defaults to the first")
+
+
 class UserUpdate(PatchBody):
     """PATCH body: send only the fields you want to change."""
     username: Username | None = None
