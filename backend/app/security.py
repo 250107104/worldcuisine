@@ -6,10 +6,16 @@ import jwt
 from pwdlib import PasswordHash
 
 _password_hash = PasswordHash.recommended()
-# Run the password hash even for unknown accounts to reduce email-enumeration timing differences.
 _DUMMY_PASSWORD_HASH = _password_hash.hash("dummy-password-never-used-for-login")
 JWT_ALGORITHM = "HS256"
 ACCESS_TOKEN_LIFETIME = timedelta(minutes=15)
+
+
+def _jwt_secret() -> str:
+    secret = os.getenv("JWT_SECRET_KEY")
+    if not secret or len(secret.encode("utf-8")) < 32:
+        raise RuntimeError("Set JWT_SECRET_KEY to a secret of at least 32 bytes")
+    return secret
 
 
 def hash_password(password: str) -> str:
@@ -24,24 +30,21 @@ def verify_password(password: str, password_hash: str) -> bool:
 
 def verify_password_or_dummy(password: str, password_hash: str | None) -> bool:
     """Verify against a dummy hash for accounts without usable credentials."""
-    return verify_password(password, password_hash or _DUMMY_PASSWORD_HASH) and password_hash is not None
+    valid = verify_password(password, password_hash or _DUMMY_PASSWORD_HASH)
+    return valid and password_hash is not None
 
 
 def create_access_token(subject: str) -> tuple[str, int]:
-    """Create a short-lived signed JWT. Configure JWT_SECRET_KEY with a random secret."""
-    secret = os.getenv("JWT_SECRET_KEY")
-    if not secret or len(secret.encode("utf-8")) < 32:
-        raise RuntimeError("Set JWT_SECRET_KEY to a secret of at least 32 bytes")
+    """Create a signed, short-lived JWT access token."""
     now = datetime.now(timezone.utc)
-    expires_at = now + ACCESS_TOKEN_LIFETIME
-    payload = {"sub": subject, "iat": now, "exp": expires_at}
-    token = jwt.encode(payload, secret, algorithm=JWT_ALGORITHM)
-    return token, int(ACCESS_TOKEN_LIFETIME.total_seconds())
+    lifetime = int(ACCESS_TOKEN_LIFETIME.total_seconds())
+    token = jwt.encode(
+        {"sub": subject, "iat": now, "exp": now + ACCESS_TOKEN_LIFETIME},
+        _jwt_secret(), algorithm=JWT_ALGORITHM,
+    )
+    return token, lifetime
 
 
 def decode_access_token(token: str) -> dict:
-    """Decode and validate an access token, raising PyJWT errors if invalid."""
-    secret = os.getenv("JWT_SECRET_KEY")
-    if not secret or len(secret.encode("utf-8")) < 32:
-        raise RuntimeError("Set JWT_SECRET_KEY to a secret of at least 32 bytes")
-    return jwt.decode(token, secret, algorithms=[JWT_ALGORITHM])
+    """Validate and decode an access token."""
+    return jwt.decode(token, _jwt_secret(), algorithms=[JWT_ALGORITHM])

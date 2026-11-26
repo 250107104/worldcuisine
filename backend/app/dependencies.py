@@ -2,7 +2,6 @@
 import jwt
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from sqlalchemy.orm import Session
 
 from app.db import DBSession
 from app.models import User
@@ -23,12 +22,12 @@ def get_current_user(
     session: DBSession,
     credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
 ) -> User:
-    """Validate the Bearer JWT and resolve its subject to an active user."""
+    """Validate Bearer JWT and resolve its subject to an existing account."""
     if credentials is None or credentials.scheme.lower() != "bearer":
         raise _unauthorized()
     try:
         claims = decode_access_token(credentials.credentials)
-    except (jwt.PyJWTError, ValueError, TypeError):
+    except (jwt.PyJWTError, ValueError, TypeError, RuntimeError):
         raise _unauthorized() from None
     subject = claims.get("sub")
     if not isinstance(subject, str) or not subject:
@@ -39,13 +38,19 @@ def get_current_user(
     return user
 
 
-def require_user_access(
-    user_id: str,
-    current_user: User = Depends(get_current_user),
-) -> User:
-    """Require that a user-scoped route is accessed by that same account."""
+def require_user_access(user_id: str, current_user: User = Depends(get_current_user)) -> User:
+    """Ensure a request may access only the authenticated user's resources."""
     if current_user.id != user_id:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Cannot access another user's data")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
+                            detail="Cannot access another user's data")
+    return current_user
+
+
+def require_admin(current_user: User = Depends(get_current_user)) -> User:
+    """Require the administrator role for global administrative actions."""
+    if current_user.role != "admin":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
+                            detail="Administrator privileges required")
     return current_user
 
 

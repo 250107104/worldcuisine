@@ -1,7 +1,9 @@
+from enum import Enum
+
 from fastapi import APIRouter, Depends, Query, Response, status
 
 from app.db import DBSession
-from app.dependencies import get_current_user
+from app.dependencies import require_admin
 from app.schemas.common import ErrorResponse, Page
 from app.schemas.input import InputText
 from app.schemas.dish import DishCreate, DishOut, DishSummary, DishUpdate
@@ -10,7 +12,7 @@ from app.services import dish_service, review_service
 
 router = APIRouter(prefix="/dishes", tags=["Dishes"])
 NOT_FOUND = {404: {"model": ErrorResponse}}
-PROTECTED = {401: {"model": ErrorResponse}}
+PROTECTED = {401: {"model": ErrorResponse}, 403: {"model": ErrorResponse}}
 
 
 class DishSort(str, Enum):
@@ -33,7 +35,6 @@ def list_dishes(
     return dish_service.list_dishes(session, q, country, category, ingredient, sort.value, limit, offset)
 
 
-# Fixed paths must be declared before '/{dish_id}'
 @router.get("/categories", response_model=list[str], summary="All dish categories")
 def categories(session: DBSession):
     return dish_service.list_categories(session)
@@ -46,7 +47,7 @@ def random_dish(session: DBSession, country: InputText | None = Query(None, desc
 
 @router.post("", response_model=DishOut, status_code=status.HTTP_201_CREATED,
              responses={409: {"model": ErrorResponse}, **PROTECTED},
-             dependencies=[Depends(get_current_user)], summary="Add a dish to the catalog")
+             dependencies=[Depends(require_admin)], summary="Add a dish to the catalog (administrator only)")
 def create_dish(session: DBSession, body: DishCreate):
     return dish_service.create_dish(session, body.model_dump())
 
@@ -58,15 +59,15 @@ def get_dish(session: DBSession, dish_id: InputText):
 
 @router.patch("/{dish_id}", response_model=DishOut,
               responses={404: {"model": ErrorResponse}, 409: {"model": ErrorResponse}, **PROTECTED},
-              dependencies=[Depends(get_current_user)], summary="Update a dish (partial)")
+              dependencies=[Depends(require_admin)], summary="Update a dish (administrator only)")
 def update_dish(session: DBSession, dish_id: InputText, body: DishUpdate):
     return dish_service.update_dish(session, dish_id, body.model_dump(exclude_unset=True))
 
 
 @router.delete("/{dish_id}", status_code=status.HTTP_204_NO_CONTENT,
                responses={404: {"model": ErrorResponse}, 409: {"model": ErrorResponse}, **PROTECTED},
-               dependencies=[Depends(get_current_user)], summary="Delete a dish",
-               description="Fails with 409 if users rated, reviewed or saved the dish, unless `force=true`.")
+               dependencies=[Depends(require_admin)], summary="Delete a dish (administrator only)",
+               description="Fails with 409 if users reference the dish, unless `force=true`.")
 def delete_dish(session: DBSession, dish_id: InputText, force: bool = Query(False)):
     dish_service.delete_dish(session, dish_id, force)
     return Response(status_code=status.HTTP_204_NO_CONTENT)

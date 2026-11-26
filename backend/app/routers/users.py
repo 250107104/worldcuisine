@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Query, Response, status
+from fastapi import APIRouter, Depends, Query, Response, status
 
 from app.db import DBSession
 from app.dependencies import require_user_access
@@ -14,7 +14,7 @@ AUTH_REQUIRED = {401: {"model": ErrorResponse}, 403: {"model": ErrorResponse}}
 
 
 @router.post("", response_model=UserOut, status_code=status.HTTP_201_CREATED,
-             responses={409: {"model": ErrorResponse}}, summary="Create a user profile")
+             responses={409: {"model": ErrorResponse}}, summary="Create a profile")
 def create_user(session: DBSession, body: UserCreate):
     data = body.model_dump()
     if body.password is not None:
@@ -22,7 +22,7 @@ def create_user(session: DBSession, body: UserCreate):
     return user_service.create_user(session, data)
 
 
-@router.get("", response_model=Page[UserOut], summary="List users")
+@router.get("", response_model=Page[UserOut], summary="List public profiles")
 def list_users(session: DBSession, limit: int = Query(20, ge=1, le=100), offset: int = Query(0, ge=0)):
     return user_service.list_users(session, limit, offset)
 
@@ -35,7 +35,7 @@ def get_user(session: DBSession, user_id: InputText):
 
 @router.patch("/{user_id}", response_model=UserOut,
               responses={404: {"model": ErrorResponse}, 409: {"model": ErrorResponse}, **AUTH_REQUIRED},
-              dependencies=[Depends(require_user_access)], summary="Edit your profile (partial)")
+              dependencies=[Depends(require_user_access)], summary="Edit your profile")
 def update_user(session: DBSession, user_id: InputText, body: UserUpdate):
     changes = body.model_dump(exclude_unset=True)
     if "password" in body.model_fields_set:
@@ -59,7 +59,7 @@ def stats(session: DBSession, user_id: InputText):
 
 @router.get("/{user_id}/activity", response_model=list[ActivityOut],
             responses={**NOT_FOUND, **AUTH_REQUIRED}, dependencies=[Depends(require_user_access)],
-            summary="Your activity feed (newest first, max 50 kept)")
+            summary="Your activity feed")
 def activity(session: DBSession, user_id: InputText,
              type: ActivityType | None = Query(None, description="Only this kind of event"),
              limit: int = Query(15, ge=1, le=50)):

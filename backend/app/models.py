@@ -56,8 +56,9 @@ class User(Base):
     )
     username: Mapped[str] = mapped_column(String(24))
     email: Mapped[str | None] = mapped_column(String(320))
-    # Store only an encoded Argon2id hash, never a user's submitted password.
+    # Persist only the encoded password hash, never a submitted password.
     password_hash: Mapped[str | None] = mapped_column(String(255))
+    role: Mapped[str] = mapped_column(String(16), server_default=text("'user'"))
     bio: Mapped[str] = mapped_column(String(160))
     avatar: Mapped[str] = mapped_column(String(8))
     created_at: Mapped[datetime] = mapped_column(default=utcnow)
@@ -65,6 +66,7 @@ class User(Base):
     __table_args__ = (
         Index("uq_users_username", func.lower(username), unique=True),
         Index("uq_users_email", func.lower(email), unique=True, postgresql_where=email.is_not(None)),
+        CheckConstraint("role IN ('user', 'admin')", name="ck_users_role"),
     )
 
 
@@ -79,9 +81,7 @@ class CollectionEntry(Base):
     added_at: Mapped[datetime] = mapped_column(default=utcnow)
     dish: Mapped[Dish] = relationship(lazy="joined")
 
-    __table_args__ = (
-        CheckConstraint("kind IN ('watchlist', 'favorites', 'tried')", name="ck_collection_kind"),
-    )
+    __table_args__ = (CheckConstraint("kind IN ('watchlist', 'favorites', 'tried')", name="ck_collection_kind"),)
 
 
 class Rating(Base):
