@@ -8,7 +8,7 @@ The FastAPI backend stores its data in PostgreSQL. Restarting FastAPI preserves 
 ## Run locally
 
 1. Start PostgreSQL. In pgAdmin, create a database named `worldcuisine` using **Databases → Create → Database**.
-2. From the project folder, run the commands below in PowerShell. Open `backend/.env` and replace `YOUR_PASSWORD` with the password for your PostgreSQL user. Adjust the username or port if yours differs. URL-encode reserved characters in the password.
+2. From the project folder, run the commands below in PowerShell. Open `backend/.env` and replace `YOUR_PASSWORD` with the password for your PostgreSQL user. Adjust the username or port if yours differs.
 3. Apply the migrations, import the catalog, and run the server. Open [WorldCuisine](http://127.0.0.1:8000/index.html) or [Swagger UI](http://127.0.0.1:8000/docs).
 
 ```powershell
@@ -23,11 +23,12 @@ if (!(Test-Path .env)) { Copy-Item .env.example .env }
 ```
 
 On macOS/Linux, use `python3 -m venv .venv`, `.venv/bin/python` for the Python commands, and `cp .env.example .env`.
-A fresh database gets demo user `u1`. The catalog import retrieves countries and recipes from [TheMealDB](https://www.themealdb.com/api.php) and writes them to PostgreSQL. It uses the API's country names and cuisine labels, supplements them with ISO codes from `pycountry`, and links each recipe to its country. The importer uses TheMealDB's country list and A–Z recipe search. Rows without enough data to establish a country or serve a recipe are counted as skipped.
+A fresh database gets demo user `u1`. The catalog import retrieves countries and recipes from [TheMealDB](https://www.themealdb.com/api.php) and writes them to PostgreSQL. It uses the API's country data and recipe results.
 
-The import uses TheMealDB's educational key `1` by default. You can set `THEMEALDB_API_KEY` in `.env`. Running the import again adds new dishes and updates country labels. It keeps existing dish records and avoids duplicates. An upstream request failure leaves the database unchanged. Once imported, the catalog works without an upstream request when the backend starts or serves a route.
+The import uses TheMealDB's educational key `1` by default. You can set `THEMEALDB_API_KEY` in `.env`. Running the import again adds new dishes and updates country labels. It keeps existing dish records.
 
-Migrations create an empty catalog. If the first import fails, the catalog stays empty. Run the import command again once TheMealDB is available. Existing databases keep their stored records; use a fresh database if you want to start with an empty catalog.
+Migrations create an empty catalog. If the first import fails, the catalog stays empty. Run the import command again once TheMealDB is available. Existing databases keep their stored records; use `POST /admin/reset` only for disposable demo data.
+
 `POST /admin/reset` resets user data and retains the catalog. Use it only for disposable demo data.
 
 ### Website
@@ -102,7 +103,7 @@ the watchlist and stamps its country in the passport · a tried dish with a revi
 ### 2. Reviews and ratings  (`/users/{id}/reviews`, `/ratings`, `/dishes/{id}/reviews`)
 Rules: one review per user and dish (`PUT` creates with 201, edits with 200) · writing a review **auto-marks the dish
 tried** (leaves watchlist, stamps country) · review stars and rating always stay equal · a rating cannot be deleted
-while a review exists (409) · deleting a review keeps the rating · dishes expose a community `average_rating`.
+while a review exists (409) · dishes expose a community `average_rating`.
 
 ### 3. Culinary Passport, activity and recommendations  (`/users/{id}/passport`, `/activity`, `/recommendations`)
 Passport shows stamps for countries in the catalog, percent explored and a rank (Newcomer < Tourist < Traveler <
@@ -123,7 +124,7 @@ Catalog rules that protect the other resources:
 | Area | Endpoints |
 |---|---|
 | Countries | `GET /countries` · `GET /countries/{id}` · `GET /countries/{id}/dishes` (paged) |
-| Dishes | `GET /dishes` (q, country, category, ingredient, sort, limit, offset) · `GET /dishes/categories` · `GET /dishes/random` · `GET/PATCH/DELETE /dishes/{id}` · `POST /dishes` · `GET /dishes/{id}/reviews` |
+| Dishes | `GET /dishes` (q, country, category, ingredient, sort, limit, offset) · `GET /dishes/categories` · `GET /dishes/random` · `GET/PATCH/DELETE /dishes/{id}` · `POST /dishes` · `GET /[...]
 | Users | `POST /users` · `GET /users` (paged) · `GET/PATCH/DELETE /users/{id}` · `GET .../stats` · `GET .../activity` · `GET .../recommendations` |
 | Collections | `GET` (paged) `/POST /users/{id}/collections/{watchlist\|favorites\|tried}` · `DELETE .../{kind}/{dish_id}` · `POST .../watchlist/{dish_id}/move-to-favorites` |
 | Reviews & ratings | `PUT/GET/DELETE /users/{id}/reviews/{dish_id}` · `GET .../reviews` (paged) · `PUT/DELETE /users/{id}/ratings/{dish_id}` · `GET .../ratings` (paged) |

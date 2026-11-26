@@ -55,11 +55,17 @@ class User(Base):
         String(32), primary_key=True, server_default=text("concat('u', nextval('user_ids'::regclass))")
     )
     username: Mapped[str] = mapped_column(String(24))
+    email: Mapped[str | None] = mapped_column(String(320))
+    # Store only an encoded Argon2id hash, never a user's submitted password.
+    password_hash: Mapped[str | None] = mapped_column(String(255))
     bio: Mapped[str] = mapped_column(String(160))
     avatar: Mapped[str] = mapped_column(String(8))
     created_at: Mapped[datetime] = mapped_column(default=utcnow)
 
-    __table_args__ = (Index("uq_users_username", func.lower(username), unique=True),)
+    __table_args__ = (
+        Index("uq_users_username", func.lower(username), unique=True),
+        Index("uq_users_email", func.lower(email), unique=True, postgresql_where=email.is_not(None)),
+    )
 
 
 class CollectionEntry(Base):
