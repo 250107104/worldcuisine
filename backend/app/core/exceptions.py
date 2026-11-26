@@ -20,6 +20,12 @@ class ConflictError(AppError):
     code = "conflict"
 
 
+class AuthenticationError(AppError):
+    """Credentials are invalid or cannot be used to authenticate."""
+    status_code = 401
+    code = "authentication_failed"
+
+
 class InvalidReferenceError(AppError):
     """A request body points at a resource that does not exist."""
     status_code = 422

@@ -23,6 +23,17 @@ Bio = Annotated[TrimmedText, StringConstraints(max_length=160)]
 Password = Annotated[str, StringConstraints(min_length=8, max_length=128)]
 
 
+class LoginRequest(RequestBody):
+    email: Email
+    password: Annotated[str, StringConstraints(min_length=1, max_length=128)] = Field(repr=False)
+
+
+class TokenOut(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    expires_in: int
+
+
 class UserCreate(RequestBody):
     username: Username = Field(examples=["Maria"])
     email: Email | None = None

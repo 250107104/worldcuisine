@@ -2,9 +2,9 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.core.constants import AVATARS
-from app.core.exceptions import ConflictError
+from app.core.exceptions import AuthenticationError, ConflictError
 from app.models import CollectionEntry, ExploredDish, PassportStamp, Rating, Review, User
-from app.security import hash_password
+from app.security import create_access_token, hash_password, verify_password_or_dummy
 from app.services.lookups import require_user
 
 
@@ -42,6 +42,17 @@ def create_user(session: Session, data: dict) -> dict:
     session.add(user)
     session.flush()
     return _view(user)
+
+
+def authenticate_user(session: Session, email: str, password: str) -> User:
+    user = session.scalar(select(User).where(func.lower(User.email) == email.lower()))
+    if not verify_password_or_dummy(password, user.password_hash if user else None):
+        raise AuthenticationError("Invalid email or password")
+    return user
+
+
+def issue_access_token(user: User) -> tuple[str, int]:
+    return create_access_token(user.id)
 
 
 def list_users(session: Session, limit: int = 20, offset: int = 0) -> dict:
