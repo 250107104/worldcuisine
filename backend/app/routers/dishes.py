@@ -1,8 +1,7 @@
-from enum import Enum
-
-from fastapi import APIRouter, Query, Response, status
+from fastapi import APIRouter, Depends, Query, Response, status
 
 from app.db import DBSession
+from app.dependencies import get_current_user
 from app.schemas.common import ErrorResponse, Page
 from app.schemas.input import InputText
 from app.schemas.dish import DishCreate, DishOut, DishSummary, DishUpdate
@@ -11,6 +10,7 @@ from app.services import dish_service, review_service
 
 router = APIRouter(prefix="/dishes", tags=["Dishes"])
 NOT_FOUND = {404: {"model": ErrorResponse}}
+PROTECTED = {401: {"model": ErrorResponse}}
 
 
 class DishSort(str, Enum):
@@ -45,8 +45,8 @@ def random_dish(session: DBSession, country: InputText | None = Query(None, desc
 
 
 @router.post("", response_model=DishOut, status_code=status.HTTP_201_CREATED,
-             responses={409: {"model": ErrorResponse}},
-             summary="Add a dish to the catalog")
+             responses={409: {"model": ErrorResponse}, **PROTECTED},
+             dependencies=[Depends(get_current_user)], summary="Add a dish to the catalog")
 def create_dish(session: DBSession, body: DishCreate):
     return dish_service.create_dish(session, body.model_dump())
 
@@ -57,17 +57,16 @@ def get_dish(session: DBSession, dish_id: InputText):
 
 
 @router.patch("/{dish_id}", response_model=DishOut,
-              responses={404: {"model": ErrorResponse}, 409: {"model": ErrorResponse}},
-              summary="Update a dish (partial)")
+              responses={404: {"model": ErrorResponse}, 409: {"model": ErrorResponse}, **PROTECTED},
+              dependencies=[Depends(get_current_user)], summary="Update a dish (partial)")
 def update_dish(session: DBSession, dish_id: InputText, body: DishUpdate):
     return dish_service.update_dish(session, dish_id, body.model_dump(exclude_unset=True))
 
 
 @router.delete("/{dish_id}", status_code=status.HTTP_204_NO_CONTENT,
-               responses={404: {"model": ErrorResponse}, 409: {"model": ErrorResponse}},
-               summary="Delete a dish",
-               description="Fails with 409 if users rated, reviewed or saved the dish, unless `force=true` "
-                           "(which removes it from every user's data).")
+               responses={404: {"model": ErrorResponse}, 409: {"model": ErrorResponse}, **PROTECTED},
+               dependencies=[Depends(get_current_user)], summary="Delete a dish",
+               description="Fails with 409 if users rated, reviewed or saved the dish, unless `force=true`.")
 def delete_dish(session: DBSession, dish_id: InputText, force: bool = Query(False)):
     dish_service.delete_dish(session, dish_id, force)
     return Response(status_code=status.HTTP_204_NO_CONTENT)

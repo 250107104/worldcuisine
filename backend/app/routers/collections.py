@@ -1,17 +1,20 @@
-from fastapi import APIRouter, Query, Response, status
+from fastapi import APIRouter, Depends, Query, Response, status
 
 from app.db import DBSession
+from app.dependencies import require_user_access
 from app.schemas.collection import CollectionAdd, CollectionItem, CollectionKind, CollectionSort
 from app.schemas.common import ErrorResponse, Page
 from app.schemas.input import InputText
 from app.services import collection_service
 
-router = APIRouter(prefix="/users/{user_id}/collections", tags=["Collections"])
-ERR = {404: {"model": ErrorResponse}, 409: {"model": ErrorResponse}}
+router = APIRouter(prefix="/users/{user_id}/collections", tags=["Collections"],
+                   dependencies=[Depends(require_user_access)])
+ERR = {404: {"model": ErrorResponse}, 409: {"model": ErrorResponse},
+       401: {"model": ErrorResponse}, 403: {"model": ErrorResponse}}
 
 
-@router.get("/{kind}", response_model=Page[CollectionItem], responses={404: {"model": ErrorResponse}},
-            summary="List a user's watchlist, favorites or tried dishes")
+@router.get("/{kind}", response_model=Page[CollectionItem], responses=ERR,
+            summary="List your watchlist, favorites or tried dishes")
 def list_items(session: DBSession, user_id: InputText, kind: CollectionKind,
                country: InputText | None = Query(None, description="Country id"),
                category: InputText | None = None,
@@ -23,7 +26,7 @@ def list_items(session: DBSession, user_id: InputText, kind: CollectionKind,
 @router.post("/{kind}", response_model=CollectionItem, status_code=status.HTTP_201_CREATED, responses=ERR,
              summary="Add a dish",
              description="Duplicates return 409. A tried dish cannot be added to the watchlist. "
-                         "Adding to `tried` removes the dish from the watchlist and stamps its country in the passport.")
+                         "Adding to `tried` removes it from the watchlist and stamps its country in the passport.")
 def add_item(session: DBSession, user_id: InputText, kind: CollectionKind, body: CollectionAdd):
     return collection_service.add(session, user_id, kind.value, body.dish_id)
 
@@ -37,6 +40,6 @@ def remove_item(session: DBSession, user_id: InputText, kind: CollectionKind, di
 
 
 @router.post("/watchlist/{dish_id}/move-to-favorites", response_model=CollectionItem, responses=ERR,
-             summary="Move a dish from the watchlist to favorites")
+             summary="Move a dish from your watchlist to favorites")
 def move_to_favorites(session: DBSession, user_id: InputText, dish_id: InputText):
     return collection_service.move_to_favorites(session, user_id, dish_id)
